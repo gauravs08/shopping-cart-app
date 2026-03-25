@@ -7,18 +7,15 @@ import com.shopping.app.dto.response.ProductResponse;
 import com.shopping.app.exception.ResourceNotFoundException;
 import com.shopping.app.security.CustomUserDetailsService;
 import com.shopping.app.service.ProductService;
+import com.shopping.app.support.SecuredControllerTest;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.context.annotation.Import;
-import org.springframework.test.context.TestPropertySource;
-import com.shopping.app.config.SecurityConfig;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.MediaType;
-import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
@@ -28,13 +25,13 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
 
+import static com.shopping.app.support.SecurityTestHelper.roleJwt;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.is;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
-import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -43,11 +40,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @WebMvcTest(ProductController.class)
-@Import(SecurityConfig.class)
-@TestPropertySource(properties = {
-        "app.jwt.secret=dGhpcyBpcyBhIHZlcnkgc2VjdXJlIHNlY3JldCBrZXkgZm9yIGRldmVsb3BtZW50IG9ubHk=",
-        "app.cors.allowed-origins=http://localhost:3000"
-})
+@SecuredControllerTest
 @DisplayName("ProductController Tests")
 class ProductControllerTest {
 
@@ -122,7 +115,6 @@ class ProductControllerTest {
         @Test
         @DisplayName("Should return 200 with paginated products")
         void getAllProducts_Returns200() throws Exception {
-            // Arrange
             PagedResponse<ProductResponse> pagedResponse = PagedResponse.<ProductResponse>builder()
                     .content(List.of(testProductResponse))
                     .page(0)
@@ -134,7 +126,6 @@ class ProductControllerTest {
 
             when(productService.getAllProducts(any(Pageable.class))).thenReturn(pagedResponse);
 
-            // Act & Assert
             mockMvc.perform(get("/api/v1/products")
                             .param("page", "0")
                             .param("size", "20"))
@@ -152,10 +143,8 @@ class ProductControllerTest {
         @Test
         @DisplayName("Should return 200 with product when found")
         void getProductById_Returns200() throws Exception {
-            // Arrange
             when(productService.getProductById(productId)).thenReturn(testProductResponse);
 
-            // Act & Assert
             mockMvc.perform(get("/api/v1/products/{id}", productId))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.data.id", is(productId.toString())))
@@ -166,12 +155,10 @@ class ProductControllerTest {
         @Test
         @DisplayName("Should return 404 when product not found")
         void getProductById_Returns404() throws Exception {
-            // Arrange
             UUID nonExistentId = UUID.randomUUID();
             when(productService.getProductById(nonExistentId))
                     .thenThrow(new ResourceNotFoundException("Product", "id", nonExistentId));
 
-            // Act & Assert
             mockMvc.perform(get("/api/v1/products/{id}", nonExistentId))
                     .andExpect(status().isNotFound());
         }
@@ -184,15 +171,11 @@ class ProductControllerTest {
         @Test
         @DisplayName("Should return 201 when seller creates product")
         void createProduct_Returns201() throws Exception {
-            // Arrange
             when(productService.createProduct(any(ProductRequest.class), anyString()))
                     .thenReturn(testProductResponse);
 
-            // Act & Assert
             mockMvc.perform(post("/api/v1/products")
-                            .with(jwt().jwt(j -> j.subject("seller@test.com")
-                                    .claim("roles", List.of("ROLE_SELLER")))
-                                    .authorities(new SimpleGrantedAuthority("ROLE_SELLER")))
+                            .with(roleJwt("seller@test.com", "ROLE_SELLER"))
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(objectMapper.writeValueAsString(testProductRequest)))
                     .andExpect(status().isCreated())
@@ -203,18 +186,14 @@ class ProductControllerTest {
         @Test
         @DisplayName("Should return 400 with invalid input")
         void createProduct_InvalidInput_Returns400() throws Exception {
-            // Arrange
             ProductRequest invalidRequest = ProductRequest.builder()
                     .name("")
                     .sku("")
                     .price(null)
                     .build();
 
-            // Act & Assert
             mockMvc.perform(post("/api/v1/products")
-                            .with(jwt().jwt(j -> j.subject("seller@test.com")
-                                    .claim("roles", List.of("ROLE_SELLER")))
-                                    .authorities(new SimpleGrantedAuthority("ROLE_SELLER")))
+                            .with(roleJwt("seller@test.com", "ROLE_SELLER"))
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(objectMapper.writeValueAsString(invalidRequest)))
                     .andExpect(status().isBadRequest());
@@ -228,7 +207,6 @@ class ProductControllerTest {
         @Test
         @DisplayName("Should return 200 when product updated")
         void updateProduct_Returns200() throws Exception {
-            // Arrange
             ProductResponse updatedResponse = ProductResponse.builder()
                     .id(productId)
                     .name("Updated Product")
@@ -242,11 +220,8 @@ class ProductControllerTest {
             when(productService.updateProduct(eq(productId), any(ProductRequest.class)))
                     .thenReturn(updatedResponse);
 
-            // Act & Assert
             mockMvc.perform(put("/api/v1/products/{id}", productId)
-                            .with(jwt().jwt(j -> j.subject("seller@test.com")
-                                    .claim("roles", List.of("ROLE_SELLER")))
-                                    .authorities(new SimpleGrantedAuthority("ROLE_SELLER")))
+                            .with(roleJwt("seller@test.com", "ROLE_SELLER"))
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(objectMapper.writeValueAsString(testProductRequest)))
                     .andExpect(status().isOk())
@@ -261,11 +236,8 @@ class ProductControllerTest {
         @Test
         @DisplayName("Should return 200 when admin deletes product")
         void deleteProduct_Returns200() throws Exception {
-            // Act & Assert
             mockMvc.perform(delete("/api/v1/products/{id}", productId)
-                            .with(jwt().jwt(j -> j.subject("admin@test.com")
-                                    .claim("roles", List.of("ROLE_ADMIN")))
-                                    .authorities(new SimpleGrantedAuthority("ROLE_ADMIN"))))
+                            .with(roleJwt("admin@test.com", "ROLE_ADMIN")))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.success", is(true)));
         }
@@ -278,7 +250,6 @@ class ProductControllerTest {
         @Test
         @DisplayName("Should return 200 with featured products")
         void getFeaturedProducts_Returns200() throws Exception {
-            // Arrange
             ProductResponse featuredProduct = ProductResponse.builder()
                     .id(UUID.randomUUID())
                     .name("Featured Product")
@@ -300,7 +271,6 @@ class ProductControllerTest {
 
             when(productService.getFeaturedProducts(any(Pageable.class))).thenReturn(pagedResponse);
 
-            // Act & Assert
             mockMvc.perform(get("/api/v1/products/featured"))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.data.content", hasSize(1)))
@@ -315,7 +285,6 @@ class ProductControllerTest {
         @Test
         @DisplayName("Should return 200 with search results")
         void searchProducts_Returns200() throws Exception {
-            // Arrange
             PagedResponse<ProductResponse> pagedResponse = PagedResponse.<ProductResponse>builder()
                     .content(List.of(testProductResponse))
                     .page(0)
@@ -327,7 +296,6 @@ class ProductControllerTest {
 
             when(productService.searchProducts(eq("Test"), any(Pageable.class))).thenReturn(pagedResponse);
 
-            // Act & Assert
             mockMvc.perform(get("/api/v1/products")
                             .param("search", "Test"))
                     .andExpect(status().isOk())

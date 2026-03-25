@@ -7,15 +7,13 @@ import com.shopping.app.dto.response.OrderResponse;
 import com.shopping.app.dto.response.PagedResponse;
 import com.shopping.app.security.CustomUserDetailsService;
 import com.shopping.app.service.OrderService;
+import com.shopping.app.support.SecuredControllerTest;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.context.annotation.Import;
-import org.springframework.test.context.TestPropertySource;
-import com.shopping.app.config.SecurityConfig;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.MediaType;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
@@ -27,13 +25,13 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
 
+import static com.shopping.app.support.SecurityTestHelper.userJwt;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.is;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
-import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
@@ -41,11 +39,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @WebMvcTest(OrderController.class)
-@Import(SecurityConfig.class)
-@TestPropertySource(properties = {
-        "app.jwt.secret=dGhpcyBpcyBhIHZlcnkgc2VjdXJlIHNlY3JldCBrZXkgZm9yIGRldmVsb3BtZW50IG9ubHk=",
-        "app.cors.allowed-origins=http://localhost:3000"
-})
+@SecuredControllerTest
 @DisplayName("OrderController Tests")
 class OrderControllerTest {
 
@@ -113,13 +107,11 @@ class OrderControllerTest {
         @Test
         @DisplayName("Should return 201 when order is created")
         void createOrder_Returns201() throws Exception {
-            // Arrange
             when(orderService.createOrder(anyString(), any(OrderRequest.class)))
                     .thenReturn(testOrderResponse);
 
-            // Act & Assert
             mockMvc.perform(post("/api/v1/orders")
-                            .with(jwt().jwt(j -> j.subject("user@test.com")))
+                            .with(userJwt("user@test.com"))
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(objectMapper.writeValueAsString(testOrderRequest)))
                     .andExpect(status().isCreated())
@@ -136,7 +128,6 @@ class OrderControllerTest {
         @Test
         @DisplayName("Should return 200 with paginated orders")
         void getOrders_Returns200() throws Exception {
-            // Arrange
             PagedResponse<OrderResponse> pagedResponse = PagedResponse.<OrderResponse>builder()
                     .content(List.of(testOrderResponse))
                     .page(0)
@@ -149,9 +140,8 @@ class OrderControllerTest {
             when(orderService.getOrdersByUser(anyString(), any(Pageable.class)))
                     .thenReturn(pagedResponse);
 
-            // Act & Assert
             mockMvc.perform(get("/api/v1/orders")
-                            .with(jwt().jwt(j -> j.subject("user@test.com")))
+                            .with(userJwt("user@test.com"))
                             .param("page", "0")
                             .param("size", "20"))
                     .andExpect(status().isOk())
@@ -167,13 +157,11 @@ class OrderControllerTest {
         @Test
         @DisplayName("Should return 200 with order details")
         void getOrderById_Returns200() throws Exception {
-            // Arrange
             when(orderService.getOrderById(eq(orderId), anyString()))
                     .thenReturn(testOrderResponse);
 
-            // Act & Assert
             mockMvc.perform(get("/api/v1/orders/{id}", orderId)
-                            .with(jwt().jwt(j -> j.subject("user@test.com"))))
+                            .with(userJwt("user@test.com")))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.data.id", is(orderId.toString())))
                     .andExpect(jsonPath("$.data.orderNumber", is("ORD-20260324-0001")))
@@ -188,7 +176,6 @@ class OrderControllerTest {
         @Test
         @DisplayName("Should return 200 when order is cancelled")
         void cancelOrder_Returns200() throws Exception {
-            // Arrange
             OrderResponse cancelledOrder = OrderResponse.builder()
                     .id(orderId)
                     .orderNumber("ORD-20260324-0001")
@@ -204,9 +191,8 @@ class OrderControllerTest {
             when(orderService.cancelOrder(eq(orderId), anyString()))
                     .thenReturn(cancelledOrder);
 
-            // Act & Assert
             mockMvc.perform(put("/api/v1/orders/{id}/cancel", orderId)
-                            .with(jwt().jwt(j -> j.subject("user@test.com"))))
+                            .with(userJwt("user@test.com")))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.data.status", is("CANCELLED")));
         }

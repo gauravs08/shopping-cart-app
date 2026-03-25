@@ -10,6 +10,7 @@ services:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    restart: unless-stopped
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U shopping_app -d shopping_cart"]
       interval: 10s
@@ -27,6 +28,7 @@ services:
       SPRING_PROFILES_ACTIVE: prod
       DB_PASSWORD: shopping_secret
       JWT_SECRET: dGhpcyBpcyBhIHZlcnkgc2VjdXJlIHNlY3JldCBrZXkgZm9yIHByb2R1Y3Rpb24gdXNlIG9ubHk=
+    restart: unless-stopped
     depends_on:
       postgres:
         condition: service_healthy

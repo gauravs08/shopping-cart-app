@@ -1,0 +1,35 @@
+services:
+  postgres:
+    image: postgres:16
+    container_name: shopping-cart-db
+    environment:
+      POSTGRES_DB: shopping_cart
+      POSTGRES_USER: shopping_app
+      POSTGRES_PASSWORD: shopping_secret
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U shopping_app -d shopping_cart"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: shopping-cart-app
+    ports:
+      - "8080:8080"
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+      DB_PASSWORD: shopping_secret
+      JWT_SECRET: dGhpcyBpcyBhIHZlcnkgc2VjdXJlIHNlY3JldCBrZXkgZm9yIHByb2R1Y3Rpb24gdXNlIG9ubHk=
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  postgres_data:

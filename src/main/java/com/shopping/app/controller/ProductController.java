@@ -25,6 +25,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.math.BigDecimal;
 import java.security.Principal;
 import java.util.UUID;
 
@@ -37,15 +38,21 @@ public class ProductController {
     private final ProductService productService;
 
     @GetMapping
-    @Operation(summary = "List all products with optional search")
+    @Operation(summary = "List all products with search and filters")
     public ResponseEntity<ApiResponse<PagedResponse<ProductResponse>>> getAllProducts(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size,
             @RequestParam(defaultValue = "createdAt,desc") String sort,
-            @RequestParam(required = false) String search) {
+            @RequestParam(required = false) String search,
+            @RequestParam(required = false) String brand,
+            @RequestParam(required = false) BigDecimal minPrice,
+            @RequestParam(required = false) BigDecimal maxPrice,
+            @RequestParam(required = false) BigDecimal minRating) {
         Pageable pageable = createPageable(page, size, sort);
-        PagedResponse<ProductResponse> response = (search != null && !search.isBlank())
-                ? productService.searchProducts(search, pageable)
+        boolean hasFilters = search != null || brand != null || minPrice != null
+                || maxPrice != null || minRating != null;
+        PagedResponse<ProductResponse> response = hasFilters
+                ? productService.filterProducts(search, brand, minPrice, maxPrice, minRating, pageable)
                 : productService.getAllProducts(pageable);
         return ResponseEntity.ok(ApiResponse.success(response));
     }

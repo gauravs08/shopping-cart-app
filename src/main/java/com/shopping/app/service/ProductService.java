@@ -18,6 +18,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.util.UUID;
 
 @Service
@@ -141,6 +142,13 @@ public class ProductService {
     @Transactional(readOnly = true)
     public PagedResponse<ProductResponse> searchProducts(String query, Pageable pageable) {
         Page<Product> page = productRepository.searchByNameOrDescription(query, pageable);
+        return mapToPagedResponse(page);
+    }
+
+    @Transactional(readOnly = true)
+    public PagedResponse<ProductResponse> filterProducts(String keyword, String brand,
+            BigDecimal minPrice, BigDecimal maxPrice, BigDecimal minRating, Pageable pageable) {
+        Page<Product> page = productRepository.findByFilters(keyword, brand, minPrice, maxPrice, minRating, pageable);
         return mapToPagedResponse(page);
     }
 

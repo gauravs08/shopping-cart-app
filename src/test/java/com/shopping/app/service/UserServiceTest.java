@@ -1,6 +1,8 @@
 package com.shopping.app.service;
 
+import com.shopping.app.dto.request.ChangePasswordRequest;
 import com.shopping.app.dto.request.RegisterRequest;
+import com.shopping.app.dto.request.UpdateProfileRequest;
 import com.shopping.app.dto.response.UserResponse;
 import com.shopping.app.entity.Role;
 import com.shopping.app.entity.User;
@@ -182,6 +184,93 @@ class UserServiceTest {
             assertThat(response).isNotNull();
             assertThat(response.getEmail()).isEqualTo("user@test.com");
             verify(userRepository).findByEmail("user@test.com");
+        }
+    }
+
+    @Nested
+    @DisplayName("Update Profile")
+    class UpdateProfile {
+
+        @Test
+        @DisplayName("Should update profile successfully")
+        void updateProfile_Success() {
+            // Arrange
+            UpdateProfileRequest request = UpdateProfileRequest.builder()
+                    .firstName("Updated")
+                    .lastName("Name")
+                    .phone("+358409999999")
+                    .build();
+
+            when(userRepository.findByEmail("user@test.com")).thenReturn(Optional.of(testUser));
+            when(userRepository.save(any(User.class))).thenReturn(testUser);
+
+            // Act
+            UserResponse response = userService.updateProfile("user@test.com", request);
+
+            // Assert
+            assertThat(response).isNotNull();
+            verify(userRepository).findByEmail("user@test.com");
+            verify(userRepository).save(any(User.class));
+        }
+
+        @Test
+        @DisplayName("Should throw exception when user not found")
+        void updateProfile_UserNotFound_ThrowsException() {
+            // Arrange
+            UpdateProfileRequest request = UpdateProfileRequest.builder().firstName("Updated").build();
+            when(userRepository.findByEmail("unknown@test.com")).thenReturn(Optional.empty());
+
+            // Act & Assert
+            assertThatThrownBy(() -> userService.updateProfile("unknown@test.com", request))
+                    .isInstanceOf(ResourceNotFoundException.class)
+                    .hasMessageContaining("User");
+        }
+    }
+
+    @Nested
+    @DisplayName("Change Password")
+    class ChangePassword {
+
+        @Test
+        @DisplayName("Should change password successfully")
+        void changePassword_Success() {
+            // Arrange
+            ChangePasswordRequest request = ChangePasswordRequest.builder()
+                    .currentPassword("password123")
+                    .newPassword("newpassword123")
+                    .build();
+
+            when(userRepository.findByEmail("user@test.com")).thenReturn(Optional.of(testUser));
+            when(passwordEncoder.matches("password123", "encoded-password")).thenReturn(true);
+            when(passwordEncoder.encode("newpassword123")).thenReturn("new-encoded-password");
+
+            // Act
+            userService.changePassword("user@test.com", request);
+
+            // Assert
+            verify(passwordEncoder).matches("password123", "encoded-password");
+            verify(passwordEncoder).encode("newpassword123");
+            verify(userRepository).save(any(User.class));
+        }
+
+        @Test
+        @DisplayName("Should throw exception when current password is wrong")
+        void changePassword_WrongPassword_ThrowsException() {
+            // Arrange
+            ChangePasswordRequest request = ChangePasswordRequest.builder()
+                    .currentPassword("wrongpassword")
+                    .newPassword("newpassword123")
+                    .build();
+
+            when(userRepository.findByEmail("user@test.com")).thenReturn(Optional.of(testUser));
+            when(passwordEncoder.matches("wrongpassword", "encoded-password")).thenReturn(false);
+
+            // Act & Assert
+            assertThatThrownBy(() -> userService.changePassword("user@test.com", request))
+                    .isInstanceOf(BadRequestException.class)
+                    .hasMessageContaining("password");
+
+            verify(userRepository, never()).save(any(User.class));
         }
     }
 }

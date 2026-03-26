@@ -1,5 +1,8 @@
 package com.shopping.app.controller;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.shopping.app.dto.request.ChangePasswordRequest;
+import com.shopping.app.dto.request.UpdateProfileRequest;
 import com.shopping.app.dto.response.UserResponse;
 import com.shopping.app.security.CustomUserDetailsService;
 import com.shopping.app.service.UserService;
@@ -10,6 +13,7 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
+import org.springframework.http.MediaType;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
@@ -21,10 +25,12 @@ import java.util.UUID;
 import static com.shopping.app.support.SecurityTestHelper.roleJwt;
 import static com.shopping.app.support.SecurityTestHelper.userJwt;
 import static org.hamcrest.Matchers.is;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -35,6 +41,9 @@ class UserControllerTest {
 
     @Autowired
     private MockMvc mockMvc;
+
+    @Autowired
+    private ObjectMapper objectMapper;
 
     @MockitoBean
     private UserService userService;
@@ -106,6 +115,54 @@ class UserControllerTest {
             mockMvc.perform(get("/api/v1/users/{id}", userId)
                             .with(userJwt("user@test.com")))
                     .andExpect(status().isForbidden());
+        }
+    }
+
+    @Nested
+    @DisplayName("PUT /api/v1/users/me")
+    class UpdateProfile {
+
+        @Test
+        @DisplayName("Should return 200 on profile update")
+        void updateProfile_Returns200() throws Exception {
+            when(userService.updateProfile(anyString(), any(UpdateProfileRequest.class)))
+                    .thenReturn(testUserResponse);
+
+            String body = objectMapper.writeValueAsString(
+                    UpdateProfileRequest.builder()
+                            .firstName("Updated")
+                            .lastName("Name")
+                            .build());
+
+            mockMvc.perform(put("/api/v1/users/me")
+                            .with(userJwt("user@test.com"))
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(body))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.success", is(true)))
+                    .andExpect(jsonPath("$.data.email", is("user@test.com")));
+        }
+    }
+
+    @Nested
+    @DisplayName("PUT /api/v1/users/me/password")
+    class ChangePassword {
+
+        @Test
+        @DisplayName("Should return 200 on password change")
+        void changePassword_Returns200() throws Exception {
+            String body = objectMapper.writeValueAsString(
+                    ChangePasswordRequest.builder()
+                            .currentPassword("oldpass123")
+                            .newPassword("newpass1234")
+                            .build());
+
+            mockMvc.perform(put("/api/v1/users/me/password")
+                            .with(userJwt("user@test.com"))
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(body))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.success", is(true)));
         }
     }
 }

@@ -33,6 +33,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -399,6 +400,57 @@ class ProductServiceTest {
                     .hasMessageContaining("Product");
 
             verify(productRepository, never()).save(any(Product.class));
+        }
+    }
+
+    @Nested
+    @DisplayName("Filter Products")
+    class FilterProducts {
+
+        @Test
+        @DisplayName("Should filter products by all criteria")
+        void filterProducts_WithAllFilters_Success() {
+            // Arrange
+            Page<Product> page = new PageImpl<>(List.of(testProduct));
+            when(productRepository.findByFilters(
+                    eq("Test"), eq("TestBrand"), eq(BigDecimal.valueOf(10)),
+                    eq(BigDecimal.valueOf(100)), eq(BigDecimal.valueOf(3)),
+                    any(Pageable.class)))
+                    .thenReturn(page);
+
+            // Act
+            PagedResponse<ProductResponse> response = productService.filterProducts(
+                    "Test", "TestBrand", BigDecimal.valueOf(10),
+                    BigDecimal.valueOf(100), BigDecimal.valueOf(3),
+                    PageRequest.of(0, 20));
+
+            // Assert
+            assertThat(response).isNotNull();
+            assertThat(response.getContent()).hasSize(1);
+            verify(productRepository).findByFilters(
+                    eq("Test"), eq("TestBrand"), eq(BigDecimal.valueOf(10)),
+                    eq(BigDecimal.valueOf(100)), eq(BigDecimal.valueOf(3)),
+                    any(Pageable.class));
+        }
+
+        @Test
+        @DisplayName("Should filter with null parameters")
+        void filterProducts_WithNullFilters_Success() {
+            // Arrange
+            Page<Product> page = new PageImpl<>(List.of(testProduct));
+            when(productRepository.findByFilters(
+                    isNull(), isNull(), isNull(), isNull(), isNull(),
+                    any(Pageable.class)))
+                    .thenReturn(page);
+
+            // Act
+            PagedResponse<ProductResponse> response = productService.filterProducts(
+                    null, null, null, null, null,
+                    PageRequest.of(0, 20));
+
+            // Assert
+            assertThat(response).isNotNull();
+            assertThat(response.getContent()).hasSize(1);
         }
     }
 }

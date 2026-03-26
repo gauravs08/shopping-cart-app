@@ -294,7 +294,8 @@ class ProductControllerTest {
                     .last(true)
                     .build();
 
-            when(productService.searchProducts(eq("Test"), any(Pageable.class))).thenReturn(pagedResponse);
+            when(productService.filterProducts(eq("Test"), any(), any(), any(), any(), any(Pageable.class)))
+                    .thenReturn(pagedResponse);
 
             mockMvc.perform(get("/api/v1/products")
                             .param("search", "Test"))

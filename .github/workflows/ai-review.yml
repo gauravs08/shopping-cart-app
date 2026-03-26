@@ -1,0 +1,34 @@
+name: AI PR Review
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+concurrency:
+  group: ai-review-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+permissions:
+  pull-requests: write
+  contents: read
+
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    if: github.event.pull_request.draft == false
+    steps:
+      - uses: gauravs08/ai-pr-reviewer@v1
+        id: review
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          model: claude-sonnet-4-5-20250929
+          tracks: 'code-quality,security,cross-file'
+          max_files: '30'
+          max_comments: '20'
+          exclude_patterns: '*.lock,dist/**,*.generated.*,build/**,*.class'
+          severity_threshold: 'medium'
+          custom_instructions: 'This is a Spring Boot 3 REST API with Java 21, JPA, Spring Security, OAuth2, Flyway migrations, and MapStruct'
+          post_summary: 'true'
+
+      - name: Fail on critical
+        if: steps.review.outputs.critical_count > 0
+        run: exit 1
